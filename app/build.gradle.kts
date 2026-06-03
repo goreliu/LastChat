@@ -79,7 +79,7 @@ android {
 
     defaultConfig {
         applicationId = "lastchat.rikkafork.cocolal"
-        minSdk = 31
+        minSdk = 28
         targetSdk = 36
         versionCode = ((System.currentTimeMillis() - 1577808000000) / 60000).toInt() // 基于 2020-01-01 00:00:00 UTC 的分钟数
         val baseVersionName = "1.4.5"
