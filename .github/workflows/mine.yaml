@@ -1,0 +1,159 @@
+name: Android Release Build
+
+on:
+  # 保留原有的 tag 触发
+  push:
+    tags:
+      - "*zh*"
+      - "*plus*"
+      - "[0-9]*"
+  # 新增：手动触发
+  workflow_dispatch:
+    inputs:
+      flavor:
+        description: '构建版本 (zh/plus)'
+        required: true
+        default: 'plus'
+        type: choice
+        options:
+          - plus
+          - zh
+      tag_name:
+        description: '版本号 (例如: 1.2.3)'
+        required: true
+        type: string
+        default: ''
+
+permissions:
+  contents: write     
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Detect flavor from tag (or manual input)
+        id: flavor
+        run: |
+          set -euo pipefail
+
+          # 优先使用手动输入的 flavor，否则从 tag 解析
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            FLAVOR="${{ github.event.inputs.flavor }}"
+            echo "flavor=$FLAVOR" >> "$GITHUB_OUTPUT"
+            echo "Using manual flavor: $FLAVOR"
+          else
+            # 原有的 tag 解析逻辑
+            TAG="${GITHUB_REF_NAME}"
+            TAG_LOWER="$(printf '%s' "$TAG" | tr '[:upper:]' '[:lower:]')"
+
+            has_zh=0
+            has_plus=0
+            if [[ "$TAG_LOWER" == *"zh"* ]]; then has_zh=1; fi
+            if [[ "$TAG_LOWER" == *"plus"* ]]; then has_plus=1; fi
+
+            if [[ $has_zh -eq 1 && $has_plus -eq 1 ]]; then
+              echo "Tag contains both 'zh' and 'plus': $TAG"
+              exit 1
+            fi
+
+            flavor="plus"
+            if [[ $has_zh -eq 1 ]]; then
+              flavor="zh"
+            elif [[ $has_plus -eq 1 ]]; then
+              flavor="plus"
+            fi
+
+            echo "flavor=$flavor" >> "$GITHUB_OUTPUT"
+            echo "Detected flavor: $flavor (tag: $TAG)"
+          fi
+
+      - name: Prepare build files
+        env:
+          GOOGLE_SERVICES_JSON_B64_PLUS: ${{ secrets.GOOGLE_SERVICES_JSON_B64_PLUS }}
+          GOOGLE_SERVICES_JSON_B64_ZH: ${{ secrets.GOOGLE_SERVICES_JSON_B64_ZH }}
+        run: |
+          set -euo pipefail
+
+          FLAVOR="${{ steps.flavor.outputs.flavor }}"
+          mkdir -p "app/src/$FLAVOR"
+
+          if [[ "$FLAVOR" == "plus" ]]; then
+            if [[ -z "${GOOGLE_SERVICES_JSON_B64_PLUS}" ]]; then
+              echo "Missing secret: GOOGLE_SERVICES_JSON_B64_PLUS"
+              exit 1
+            fi
+            printf '%s' "${GOOGLE_SERVICES_JSON_B64_PLUS}" | base64 -d > "app/src/plus/google-services.json"
+            test -s "app/src/plus/google-services.json"
+          elif [[ "$FLAVOR" == "zh" ]]; then
+            if [[ -z "${GOOGLE_SERVICES_JSON_B64_ZH}" ]]; then
+              echo "Missing secret: GOOGLE_SERVICES_JSON_B64_ZH"
+              exit 1
+            fi
+            printf '%s' "${GOOGLE_SERVICES_JSON_B64_ZH}" | base64 -d > "app/src/zh/google-services.json"
+            test -s "app/src/zh/google-services.json"
+          else
+            echo "Unknown flavor: $FLAVOR"
+            exit 1
+          fi
+
+          if [ -n "${{ secrets.KEY_BASE64 }}" ]; then
+            echo "${{ secrets.KEY_BASE64 }}" | base64 -d > app/app.key
+          fi
+
+          if [ -n "${{ secrets.SIGNING_CONFIG }}" ]; then
+            echo "${{ secrets.SIGNING_CONFIG }}" > local.properties
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web-ui/package-lock.json
+
+      - name: Install Web UI dependencies
+        run: npm ci
+        working-directory: web-ui
+
+      - name: Gradle Build Release
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+
+          FLAVOR="${{ steps.flavor.outputs.flavor }}"
+          FLAVOR_CAP="${FLAVOR^}"
+          TASK="assemble${FLAVOR_CAP}Release"
+
+          echo "Building release APK ($TASK)..."
+          ./gradlew ":app:$TASK" --no-daemon --stacktrace
+
+      - name: Upload build output (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk-${{ steps.flavor.outputs.flavor }}
+          path: app/build/outputs/apk/${{ steps.flavor.outputs.flavor }}/release/*.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # 手动触发时使用输入的 tag_name，tag 触发时使用 github.ref_name
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name || github.ref_name }}
+          name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name || github.ref_name }}
+          generate_release_notes: true
+          files: |
+            app/build/outputs/apk/${{ steps.flavor.outputs.flavor }}/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
