@@ -82,7 +82,7 @@ android {
         minSdk = 28 // Android 9
         targetSdk = 36
         versionCode = ((System.currentTimeMillis() - 1577808000000) / 60000).toInt() // 基于 2020-01-01 00:00:00 UTC 的分钟数
-        val baseVersionName = "1.4.5"
+        val baseVersionName = "1.4.6"
         versionName = if (isGithubActionsBuild) {
             baseVersionName
         } else {
@@ -382,6 +382,10 @@ dependencies {
 
     // Reorderable (https://github.com/Calvin-LL/Reorderable/)
     implementation(libs.reorderable)
+
+    // Haze (glassmorphism blur for Compose, https://github.com/chrisbanes/haze)
+    implementation(libs.haze)
+    implementation(libs.haze.materials)
 
     // lucide icons
     implementation(libs.lucide.icons)

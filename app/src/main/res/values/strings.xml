@@ -716,6 +716,8 @@
     <string name="setting_display_page_notification_message_generated_desc">Show notification when message generation completes in background</string>
     <string name="setting_display_page_hide_suggestions_overlap_title">Auto-hide suggestions on overlap</string>
     <string name="setting_display_page_hide_suggestions_overlap_desc">Fade out chat suggestions when they cover message text</string>
+    <string name="setting_display_page_top_bar_blur_title">Top bar blur effect</string>
+    <string name="setting_display_page_top_bar_blur_desc">Apply a frosted-glass blur to the chat top bar so background and messages show through while keeping the title and icons readable</string>
     <string name="setting_display_page_auto_scroll_generation_title">Auto-scroll while generating</string>
     <string name="setting_display_page_auto_scroll_generation_desc">Follow new output while a message is generating. Turn this off to keep your reading position.</string>
     <string name="setting_display_page_notification_live_update">Live Update Mode</string>
@@ -1638,6 +1640,8 @@
     <string name="setting_search_page_depth_basic">Basic</string>
     <string name="setting_search_page_depth_deep">Deep</string>
     <string name="setting_search_page_depth_standard">Standard</string>
+    <string name="setting_search_page_exa_search_type">Search Type</string>
+    <string name="setting_search_page_exa_search_type_desc">Controls Exa search depth and speed</string>
     <string name="setting_search_page_model">Model</string>
     <string name="setting_search_page_engines">Engines</string>
     <string name="setting_search_page_include_images">Include Images</string>
